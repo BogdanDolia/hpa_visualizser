@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>HPA Configurable Scaling Behavior Simulator</title>
+    <link rel="stylesheet" href="styles.css" />
+</head>
+
+<body>
+    <div class="page">
+        <header class="header">
+            <div class="title-block">
+                <h1>Horizontal Pod Autoscaler Simulator</h1>
+                <p class="subtitle">
+                    Configurable Scaling Behavior: policies, stabilization window, and tolerance
+                </p>
+            </div>
+            <div class="doc-ref">
+                Reference: <a target="_blank" rel="noreferrer noopener"
+                    href="https://kubernetes.io/docs/tasks/run-application/horizontal-pod-autoscale/#configurable-scaling-behavior">Kubernetes
+                    docs</a>
+            </div>
+        </header>
+
+        <section class="templates card">
+            <div class="card-title">Ready-to-use Templates</div>
+            <div class="template-grid">
+                <div class="template-controls">
+                    <label for="templateSelect">Template</label>
+                    <select id="templateSelect"></select>
+                    <div class="template-actions">
+                        <button id="applyTemplateBtn" class="btn primary">Load Template</button>
+                        <button id="resetBtn" class="btn">Reset</button>
+                    </div>
+                    <div class="template-desc" id="templateDescription"></div>
+                </div>
+                <div class="template-yaml">
+                    <div class="yaml-header">
+                        <span>Generated HPA YAML (behavior section)</span>
+                        <button id="copyYamlBtn" class="btn small">Copy YAML</button>
+                    </div>
+                    <textarea id="yamlPreview" spellcheck="false"></textarea>
+                </div>
+            </div>
+        </section>
+
+        <section class="controls card">
+            <div class="card-title">Simulation Controls</div>
+            <div class="controls-grid">
+                <div class="group">
+                    <div class="group-title">Workload Limits</div>
+                    <label>Min Replicas <input type="number" id="minReplicas" value="1" min="0" /></label>
+                    <label>Max Replicas <input type="number" id="maxReplicas" value="50" min="1" /></label>
+                    <label>Initial Replicas <input type="number" id="initialReplicas" value="3" min="0" /></label>
+                </div>
+
+                <div class="group">
+                    <div class="group-title">Metrics</div>
+                    <label>Target Metric <input type="number" id="targetValue" value="100" min="1" /></label>
+                    <label>Scenario
+                        <select id="metricScenario"></select>
+                    </label>
+                    <label>Custom f(t)
+                        <input id="customFormula" type="text" placeholder="e.g., 100 + 60*Math.sin(t/30)" />
+                    </label>
+                </div>
+
+                <div class="group">
+                    <div class="group-title">Scheduler</div>
+                    <label>HPA Sync Period (s)
+                        <input type="number" id="syncPeriod" value="15" min="1" />
+                    </label>
+                    <label>Time Step (s)
+                        <input type="number" id="timeStep" value="1" min="1" />
+                    </label>
+                    <label>Playback Speed
+                        <input type="range" id="speedSlider" min="0.25" max="4" step="0.25" value="1" />
+                    </label>
+                </div>
+
+                <div class="group">
+                    <div class="group-title">Scale Up</div>
+                    <label>Stabilization Window (s)
+                        <input type="number" id="upStabWindow" value="0" min="0" />
+                    </label>
+                    <label>Tolerance (fraction)
+                        <input type="number" id="upTolerance" value="0.1" min="0" max="1" step="0.01" />
+                    </label>
+                    <label>Select Policy
+                        <select id="upSelectPolicy">
+                            <option value="Max" selected>Max</option>
+                            <option value="Min">Min</option>
+                            <option value="Disabled">Disabled</option>
+                        </select>
+                    </label>
+                    <div class="policy-editor">
+                        <div class="policy-list" id="upPolicies"></div>
+                        <button id="addUpPodsPolicy" class="btn small">+ Pods policy</button>
+                        <button id="addUpPercentPolicy" class="btn small">+ Percent policy</button>
+                    </div>
+                </div>
+
+                <div class="group">
+                    <div class="group-title">Scale Down</div>
+                    <label>Stabilization Window (s)
+                        <input type="number" id="downStabWindow" value="300" min="0" />
+                    </label>
+                    <label>Tolerance (fraction)
+                        <input type="number" id="downTolerance" value="0.1" min="0" max="1" step="0.01" />
+                    </label>
+                    <label>Select Policy
+                        <select id="downSelectPolicy">
+                            <option value="Max" selected>Max</option>
+                            <option value="Min">Min</option>
+                            <option value="Disabled">Disabled</option>
+                        </select>
+                    </label>
+                    <div class="policy-editor">
+                        <div class="policy-list" id="downPolicies"></div>
+                        <button id="addDownPodsPolicy" class="btn small">+ Pods policy</button>
+                        <button id="addDownPercentPolicy" class="btn small">+ Percent policy</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="control-bar">
+                <button id="startBtn" class="btn primary">Start</button>
+                <button id="pauseBtn" class="btn">Pause</button>
+                <button id="stepBtn" class="btn">Step</button>
+                <button id="clearBtn" class="btn danger">Clear</button>
+                <div class="spacer"></div>
+                <button id="downloadBtn" class="btn">Download Results</button>
+            </div>
+        </section>
+
+        <section class="charts">
+            <div class="chart card">
+                <div class="card-title">Metrics vs Target</div>
+                <svg id="metricChart" class="chart-svg" viewBox="0 0 1000 280" preserveAspectRatio="none"></svg>
+            </div>
+            <div class="chart card">
+                <div class="card-title">Replica Counts</div>
+                <svg id="replicaChart" class="chart-svg" viewBox="0 0 1000 280" preserveAspectRatio="none"></svg>
+            </div>
+        </section>
+
+        <section class="log card">
+            <div class="card-title">Decision Log</div>
+            <table class="log-table">
+                <thead>
+                    <tr>
+                        <th>t (s)</th>
+                        <th>Metric</th>
+                        <th>Ratio</th>
+                        <th>Desired</th>
+                        <th>Stabilized</th>
+                        <th>Dir</th>
+                        <th>Allowed</th>
+                        <th>Applied</th>
+                        <th>Replicas</th>
+                    </tr>
+                </thead>
+                <tbody id="logBody"></tbody>
+            </table>
+        </section>
+    </div>
+
+    <script src="examples.js"></script>
+    <script src="simulator.js"></script>
+</body>
+
+</html>
